@@ -2,48 +2,55 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>図書管理システム</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クラウド図書管理システム</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <nav class="navbar">
         <span onclick="showPage('main-page')">🏠 ホーム</span>
-        <span onclick="showPage('login-page')" style="color: #007bff; cursor: pointer;">⚙ 本を登録（管理者用）</span>
+        <span onclick="showPage('login-page')" style="color:#007bff;">⚙ 管理者用</span>
     </nav>
 
     <div id="main-page" class="page">
-        <h1>📖 貸出・返却</h1>
+        <h1>📚 本棚の状況</h1>
         <div class="card">
-            <input type="text" id="barcode-input" autofocus placeholder="ここをスキャンして貸出/返却">
+            <input type="text" id="barcode-input" autofocus placeholder="バーコードをスキャン">
         </div>
-        <div class="card" id="result-card" style="display:none;">
-            <h2 id="book-title">---</h2>
-            <p id="status-text"></p>
-            <button class="btn" id="action-btn">操作</button>
+
+        <div id="result-card" class="card" style="display:none;">
+            <h2 id="result-title"></h2>
+            <p id="result-status"></p>
+            <button id="action-btn" class="btn"></button>
         </div>
-        <div class="card">
-            <h3>現在の貸出中リスト</h3>
-            <ul id="borrowed-list"></ul>
+
+        <div class="inventory">
+            <div class="card">
+                <h3>🏠 本棚にある本</h3>
+                <ul id="stock-list"></ul>
+            </div>
+            <div class="card">
+                <h3>📖 貸出中の本</h3>
+                <ul id="borrowed-list"></ul>
+            </div>
         </div>
     </div>
 
     <div id="login-page" class="page" style="display:none;">
         <h1>🔐 管理者ログイン</h1>
         <div class="card">
-            <p>パスワードを入力してください</p>
             <input type="password" id="admin-password" placeholder="パスワードを入力">
             <button class="btn" onclick="checkPassword()">ログイン</button>
         </div>
     </div>
 
     <div id="register-page" class="page" style="display:none;">
-        <h1>🆕 本の新規登録</h1>
+        <h1>🆕 本の新しく登録</h1>
         <div class="card">
             <input type="text" id="reg-barcode" placeholder="バーコードをスキャン">
-            <input type="text" id="reg-title" placeholder="本のタイトルを入力">
-            <button class="btn" onclick="registerBook()" style="background: #007bff;">登録する</button>
-            <p><button onclick="showPage('main-page')">← 戻る</button></p>
+            <input type="text" id="reg-title" placeholder="タイトルを入力">
+            <button class="btn" onclick="registerBook()" style="background:#007bff;">スプレッドシートへ登録</button>
+            <p><button onclick="showPage('main-page')">戻る</button></p>
         </div>
     </div>
 

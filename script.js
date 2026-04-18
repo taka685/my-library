@@ -1,94 +1,117 @@
-// データの初期化
-let bookMaster = JSON.parse(localStorage.getItem('bookMaster') || '{}');
-let borrowedBooks = JSON.parse(localStorage.getItem('borrowedBooks') || '{}');
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzzdplVtBLQ_IcwTigst4Z9v_GExztragZqPyaszci92qPaMz25t7sl7Xvzvr3hDUd5/exec";
 
-// --- 画面切り替え機能 ---
-function showPage(pageId) {
-    // すべてのページを一旦非表示にする
-    document.querySelectorAll('.page').forEach(page => {
-        page.style.display = 'none';
-    });
-    // 指定したページだけ表示
-    document.getElementById(pageId).style.display = 'block';
-    
-    // メインページに戻った時は入力欄にフォーカスを合わせる
-    if(pageId === 'main-page') {
-        setTimeout(() => document.getElementById('barcode-input').focus(), 100);
+// ページ読み込み時にデータを取得
+window.onload = () => {
+    fetchData();
+};
+
+// --- スプレッドシートからデータを取ってくる関数 ---
+async function fetchData() {
+    try {
+        const response = await fetch(GAS_URL);
+        const books = await response.json();
+        updateInventoryUI(books);
+    } catch (e) {
+        console.error("データ取得失敗", e);
     }
 }
 
-// --- パスワードチェック ---
-function checkPassword() {
-    const pass = document.getElementById('admin-password').value;
-    if (pass === "178239") {
-        showPage('register-page');
-        document.getElementById('admin-password').value = ""; // クリア
-    } else {
-        alert("パスワードが違います！");
-    }
-}
+// 在庫リストを表示する
+function updateInventoryUI(books) {
+    const stockList = document.getElementById('stock-list');
+    const borrowedList = document.getElementById('borrowed-list');
+    stockList.innerHTML = "";
+    borrowedList.innerHTML = "";
 
-// --- 本の登録機能 ---
-function registerBook() {
-    const code = document.getElementById('reg-barcode').value;
-    const title = document.getElementById('reg-title').value;
-    if (!code || !title) {
-        alert("両方入力してください");
-        return;
-    }
-    bookMaster[code] = title;
-    localStorage.setItem('bookMaster', JSON.stringify(bookMaster));
-    alert("登録完了！");
-    document.getElementById('reg-barcode').value = '';
-    document.getElementById('reg-title').value = '';
-}
+    // 1行目はヘッダーなので i=1 から開始
+    for (let i = 1; i < books.length; i++) {
+        const [barcode, title, isBorrowed] = books[i];
+        const li = document.createElement('li');
+        li.innerText = title;
 
-// --- 貸出処理（前回とほぼ同じ） ---
-const inputField = document.getElementById('barcode-input');
-inputField.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        const code = inputField.value;
-        const title = bookMaster[code];
-        if (!title) {
-            alert("未登録の本です");
+        if (isBorrowed === true || isBorrowed === "true") {
+            borrowedList.appendChild(li);
         } else {
-            updateUI(code, title);
+            stockList.appendChild(li);
         }
-        inputField.value = '';
+    }
+}
+
+// --- 画面切り替え ---
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.getElementById(pageId).style.display = 'block';
+}
+
+// --- 管理者ログイン ---
+function checkPassword() {
+    if (document.getElementById('admin-password').value === "178239") {
+        showPage('register-page');
+    } else {
+        alert("パスワードが違います");
+    }
+}
+
+// --- 本の登録 (GASへ送信) ---
+async function registerBook() {
+    const barcode = document.getElementById('reg-barcode').value;
+    const title = document.getElementById('reg-title').value;
+    if (!barcode || !title) return alert("全部入力してください");
+
+    const data = { action: "register", barcode, title };
+    await sendToGas(data);
+    alert("登録しました！");
+    location.reload(); 
+}
+
+// --- 貸出・返却の切り替え (GASへ送信) ---
+async function toggleBorrow(barcode, newStatus) {
+    const data = { action: "update", barcode, isBorrowed: newStatus };
+    await sendToGas(data);
+    alert(newStatus ? "貸し出しました" : "返却しました");
+    location.reload();
+}
+
+// GASにデータを送る共通関数
+async function sendToGas(payload) {
+    await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+}
+
+// バーコードスキャン入力 (貸出メイン)
+document.getElementById('barcode-input').addEventListener('keypress', async (e) => {
+    if (e.key === 'Enter') {
+        const code = e.target.value;
+        const response = await fetch(GAS_URL);
+        const books = await response.json();
+        
+        // スキャンした本を探す
+        const book = books.find(b => b[0] == code);
+        if (book) {
+            showResult(book);
+        } else {
+            alert("未登録の本です");
+        }
+        e.target.value = "";
     }
 });
 
-function updateUI(code, title) {
-    document.getElementById('result-card').style.display = 'block';
-    document.getElementById('book-title').innerText = title;
+function showResult(book) {
+    const [barcode, title, isBorrowed] = book;
+    const card = document.getElementById('result-card');
+    card.style.display = 'block';
+    document.getElementById('result-title').innerText = title;
+    
     const btn = document.getElementById('action-btn');
-    const statusText = document.getElementById('status-text');
-
-    if (borrowedBooks[code]) {
-        statusText.innerText = "状態：貸出中";
+    if (isBorrowed === true || isBorrowed === "true") {
+        document.getElementById('result-status').innerText = "状態：貸出中";
         btn.innerText = "返却する";
-        btn.onclick = () => { delete borrowedBooks[code]; save(); };
+        btn.onclick = () => toggleBorrow(barcode, false);
     } else {
-        statusText.innerText = "状態：在庫あり";
+        document.getElementById('result-status').innerText = "状態：在庫あり";
         btn.innerText = "借りる";
-        btn.onclick = () => { borrowedBooks[code] = title; save(); };
+        btn.onclick = () => toggleBorrow(barcode, true);
     }
 }
-
-function save() {
-    localStorage.setItem('borrowedBooks', JSON.stringify(borrowedBooks));
-    refreshList();
-    document.getElementById('result-card').style.display = 'none';
-}
-
-function refreshList() {
-    const list = document.getElementById('borrowed-list');
-    list.innerHTML = "";
-    for (let code in borrowedBooks) {
-        const li = document.createElement('li');
-        li.innerText = "📖 " + borrowedBooks[code];
-        list.appendChild(li);
-    }
-}
-
-refreshList();
